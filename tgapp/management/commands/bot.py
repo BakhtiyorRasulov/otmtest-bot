@@ -20,7 +20,7 @@ import random
 from tgapp.tools.result_check import getPoint
 from tgapp.tools.find_res import getResult
 from tgapp.tools.solidify_result import getSolid
-
+from codes import root_path, payment_token, bot_token
 
 # Enable logging
 logging.basicConfig(
@@ -148,7 +148,7 @@ def stop(update: Update, _: CallbackContext) -> int:
     logger.info("User %s canceled the conversation.", user.first_name)
     person = BotUsers.objects.update(status=False)
     update.message.reply_text(
-        'Bye! I hope we can talk again some day.', reply_markup=ReplyKeyboardRemove()
+        'STOP', reply_markup=ReplyKeyboardRemove()
     )
     return ConversationHandler.END
 
@@ -300,7 +300,7 @@ def echo(update: Update, _: CallbackContext) -> None:
     if update.message.text == string[person.lang]['instructions']:
         main_menu_keyboard = keyboard_generator(person)
         reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-        video_file = open("/home/baxtiyor_rasulov_2001/tgtest/uploads/simple-vid.mp4", 'rb')
+        video_file = open(root_path + "/tgtest/uploads/instruction.mp4", 'rb')
         update.message.reply_video(video_file,
         reply_markup=reply_kb_markup)
         return ConversationHandler.END
@@ -463,7 +463,7 @@ def get_results(update: Update, context: CallbackContext) -> int:
     title = "To'lov"
     description = "Test buyurtmasi uchun to'lov."
     payload = "Test-Payload"
-    provider_token = "398062629:TEST:999999999_F91D8F69C042267444B74CC0B3C747757EB0E065"
+    provider_token = payment_token
     start_parameter = "test-payment"
     currency = "UZS"
     price = 15000
@@ -523,7 +523,7 @@ def successful_payment_callback(update: Update, _: CallbackContext) -> None:
         update.message.reply_text(user_result)
 
 def main() -> None:
-    updater = Updater("1684859888:AAGEhEK5G6cgDM31w0PsTRuCDNsUDVzNsH8")
+    updater = Updater(bot_token)
     dispatcher = updater.dispatcher
     user_register_conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],

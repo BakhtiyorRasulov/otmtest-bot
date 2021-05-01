@@ -2,7 +2,7 @@ import os
 import json
 from django.conf import settings
 import telegram
-root_path = "/home/baxtiyor_rasulov_2001"
+from codes import root_path
 
 def get_file(query_data, random_num):
     answer_file = open(root_path + '/tgtest/answers/{}/{}.json'.format(

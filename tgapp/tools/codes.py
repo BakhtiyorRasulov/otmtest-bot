@@ -1,0 +1,1 @@
+root_path = "/home/baxtiyor_rasulov_2001"
