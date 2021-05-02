@@ -2,6 +2,6 @@
 /uploads/
 tgapp/tools/__pycache__/
 tgapp/management/commands/__pycache__/
-tgapp/tools/codes.py
-tgapp/management/commands/codes.py
+tgapp/tools/code.py
+tgapp/management/commands/code.py
 
