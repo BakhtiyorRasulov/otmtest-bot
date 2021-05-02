@@ -20,7 +20,7 @@ import random
 from tgapp.tools.result_check import getPoint
 from tgapp.tools.find_res import getResult
 from tgapp.tools.solidify_result import getSolid
-from codes import root_path, payment_token, bot_token
+from .codes import root_path, payment_token, bot_token
 
 # Enable logging
 logging.basicConfig(

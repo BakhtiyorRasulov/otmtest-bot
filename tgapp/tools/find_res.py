@@ -2,7 +2,7 @@ import pandas as pd
 import os
 from django.conf import settings
 import json
-from codes import root_path
+from .codes import root_path
 def read_csv(csv_file):
     cfile = pd.read_csv(csv_file)
     return cfile

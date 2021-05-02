@@ -1,3 +1,7 @@
 /answers/
 /uploads/
-__pycache__/
+tgapp/tools/__pycache__/
+tgapp/management/commands/__pycache__/
+tgapp/tools/code.py
+tgapp/management/commands/code.py
+

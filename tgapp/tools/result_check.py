@@ -2,7 +2,7 @@ import os
 import json
 from django.conf import settings
 import telegram
-from codes import root_path
+from .codes import root_path
 
 def get_file(query_data, random_num):
     answer_file = open(root_path + '/tgtest/answers/{}/{}.json'.format(
@@ -31,16 +31,16 @@ def normalize(anylist):
 def calculate_point(answers, user_answers):
     point = 0
     for i in range(len(answers)):
-        # try:
-        if answers[i][-1] == user_answers[i][0].upper():
-            if i <= 45:
-                point += 2.1
+        try:
+            if answers[i][-1] == user_answers[i][0].upper():
+                if i <= 45:
+                    point += 2.1
+                else:
+                    point += 3.1
             else:
-                point += 3.1
-        else:
-            user_answers[i][1] = False
-        # except IndexError:
-        #     pass
+                    user_answers[i][1] = False
+        except IndexError:
+            pass
 
     return point, user_answers
 
