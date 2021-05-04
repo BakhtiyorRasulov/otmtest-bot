@@ -189,10 +189,12 @@ def person_info(update: Update, _: CallbackContext) -> int:
                 update.message.text)
 
     person = BotUsers.objects.get(chat_id=update.message.chat_id)
-
+    main_menu_keyboard = [[KeyboardButton(string[person.lang]['back'])]]
+    reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
     if update.message.text == string[person.lang]['edit']:
         update.message.reply_text(
-            string[person.lang]['name_input']
+            string[person.lang]['name_input'],
+            reply_markup=reply_kb_markup
         )
         return CHANGE_NAME
 
@@ -207,10 +209,15 @@ def person_info(update: Update, _: CallbackContext) -> int:
         return ConversationHandler.END
 
 
-def change_name(update: Update, _: CallbackContext) -> int:
+def change_name(update: Update, callback: CallbackContext) -> int:
     user = update.message.from_user
     logger.info("state: CHANGE_NAME, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name,
                 update.message.text)
+    person = BotUsers.objects.get(chat_id=update.message.chat_id)
+    if update.message.text == string[person.lang]['back']:
+        echo(update, callback)
+        return ConversationHandler.END
+        
     person, created = BotUsers.objects.update_or_create(
         chat_id=update.message.chat_id, defaults={"last_name": update.message.text}
     )
@@ -300,7 +307,7 @@ def echo(update: Update, _: CallbackContext) -> None:
     if update.message.text == string[person.lang]['instructions']:
         main_menu_keyboard = keyboard_generator(person)
         reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-        video_file = open(root_path + "/tgtest/uploads/instruction.mp4", 'rb')
+        video_file = open(root_path + "/uploads/instruction.mp4", 'rb')
         update.message.reply_video(video_file,
         reply_markup=reply_kb_markup)
         return ConversationHandler.END
