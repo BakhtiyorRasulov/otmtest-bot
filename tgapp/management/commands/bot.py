@@ -20,7 +20,7 @@ import random
 from tgapp.tools.result_check import getPoint
 from tgapp.tools.find_res import getResult
 from tgapp.tools.solidify_result import getSolid
-from .codes import root_path, payment_token, bot_token
+from .codes import root_path, payment_token, payment_token2, bot_token
 
 # Enable logging
 logging.basicConfig(
@@ -471,12 +471,16 @@ def get_results(update: Update, context: CallbackContext) -> int:
     description = "Test buyurtmasi uchun to'lov."
     payload = "Test-Payload"
     provider_token = payment_token
+    provider_token2 = payment_token2
     start_parameter = "test-payment"
     currency = "UZS"
     price = 15000
     prices = [LabeledPrice("TestTulovi", price * 100)]
     context.bot.send_invoice(
         chat_id, title, description, payload, provider_token, start_parameter, currency, prices
+    )
+    context.bot.send_invoice(
+        chat_id, title, description, payload, provider_token2, start_parameter, currency, prices
     )
     main_menu_keyboard = keyboard_generator(person)
     reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
