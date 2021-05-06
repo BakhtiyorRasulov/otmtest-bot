@@ -467,12 +467,14 @@ def get_results(update: Update, context: CallbackContext) -> int:
     #     update.message.reply_text(string[person.lang]['fail'].format(fEarnedPoint, len(sResult.splitlines()))+f"{user_result}")
 
     chat_id = update.message.chat_id
-    title = "To'lov"
+    title = "Click orqali to'lov"
+    title2 = "PayMe orqali to'lov"
     description = "Test buyurtmasi uchun to'lov."
     payload = "Test-Payload"
     provider_token = payment_token
     provider_token2 = payment_token2
     start_parameter = "test-payment"
+    start_parameter2 = "payment-param"
     currency = "UZS"
     price = 15000
     prices = [LabeledPrice("TestTulovi", price * 100)]
@@ -480,7 +482,7 @@ def get_results(update: Update, context: CallbackContext) -> int:
         chat_id, title, description, payload, provider_token, start_parameter, currency, prices
     )
     context.bot.send_invoice(
-        chat_id, title, description, payload, provider_token2, start_parameter, currency, prices
+        chat_id, title2, description, payload, provider_token2, start_parameter2, currency, prices
     )
     main_menu_keyboard = keyboard_generator(person)
     reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
