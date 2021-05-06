@@ -448,7 +448,7 @@ def get_results(update: Update, context: CallbackContext) -> int:
     logger.info("state: CONFIRM, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
     person = BotUsers.objects.get(chat_id=query.message.chat.id)
     if update.message.text == string[person.lang]['yes']:
-        pass
+        update.message.reply_text(string[person.lang]['payment'])
     elif update.message.text == string[person.lang]['no']:
         user_answers = ""
         update.message.reply_text(string[person.lang]['reenter'])
@@ -476,7 +476,7 @@ def get_results(update: Update, context: CallbackContext) -> int:
     start_parameter = "test-payment"
     start_parameter2 = "payment-param"
     currency = "UZS"
-    price = 15000
+    price = 10000
     prices = [LabeledPrice("TestTulovi", price * 100)]
     context.bot.send_invoice(
         chat_id, title, description, payload, provider_token, start_parameter, currency, prices
