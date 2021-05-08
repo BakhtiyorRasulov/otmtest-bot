@@ -469,7 +469,7 @@ def get_results(update: Update, context: CallbackContext) -> int:
     chat_id = update.message.chat_id
     title = "Click orqali to'lov"
     title2 = "PayMe orqali to'lov"
-    description = "Test buyurtmasi uchun to'lov."
+    description = "Test javoblari buyurtmasi uchun to'lov."
     payload = "Test-Payload"
     provider_token = payment_token
     provider_token2 = payment_token2
