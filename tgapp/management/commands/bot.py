@@ -14,7 +14,6 @@ from telegram.ext import (
     PreCheckoutQueryHandler,
     CallbackContext,
 )
-# from pprint import pprint
 import random
 
 from tgapp.tools.result_check import getPoint
@@ -339,7 +338,6 @@ def test_start(update: Update, _: CallbackContext) -> int:
             keyboard.append([InlineKeyboardButton(s.name_uz, callback_data=s.name_uz)])
         if person.lang == 'ru':
             keyboard.append([InlineKeyboardButton(s.name_ru, callback_data=s.name_ru)])
-        print(s)
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
         string[person.lang]['start_test_msg'],
@@ -377,7 +375,6 @@ def select_subject(update: Update, context: CallbackContext) -> int:
             person.save()
         random_num = int(person.last_test_no)
         random_file_url = subject.file_set.filter(language=str(person.lang))[random_num-1].upload
-        print(random_file_url)
         document = open(str(random_file_url), 'rb')
         query.message.reply_document(document)
         query.message.reply_text(
@@ -442,7 +439,6 @@ def waiting_for_answers2(update: Update, context: CallbackContext) -> int:
 
 
 def get_results(update: Update, context: CallbackContext) -> int:
-    print("GETRESULT")
     global random_num, query, sResult, user_answers, counter
     user = update.message.from_user
     logger.info("state: CONFIRM, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
@@ -455,16 +451,6 @@ def get_results(update: Update, context: CallbackContext) -> int:
         return WAITING_FOR_ANSWERS
     else:
         echo(update, context)
-
-    # fEarnedPoint, user_result = getPoint(person.lang,query.data, random_num, user_answers)
-    # user_answers = ''
-    # user_result = getSolid(user_result)
-    # sResult = getResult(fEarnedPoint, person.lang, 'kunduzgi', query.data)
-    # if len(sResult.splitlines()) != 0:
-    #     update.message.reply_text(string[person.lang]['pass'].format(fEarnedPoint, len(sResult.splitlines()))+f"{user_result}")
-    #     update.message.reply_text(sResult)
-    # else:    
-    #     update.message.reply_text(string[person.lang]['fail'].format(fEarnedPoint, len(sResult.splitlines()))+f"{user_result}")
 
     chat_id = update.message.chat_id
     title = "Click orqali to'lov"
