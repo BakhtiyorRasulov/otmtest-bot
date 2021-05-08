@@ -33,7 +33,7 @@ def calculate_point(answers, user_answers):
     for i in range(len(answers)):
         try:
             if answers[i][-1] == user_answers[i][0].upper():
-                if i <= 45:
+                if i < 45:
                     point += 2.1
                 else:
                     point += 3.1
