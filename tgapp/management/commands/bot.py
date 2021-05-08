@@ -477,7 +477,7 @@ def get_results(update: Update, context: CallbackContext) -> int:
     start_parameter2 = "payment-param"
     currency = "UZS"
     price = 10000
-    prices = [LabeledPrice("TestTulovi", price * 100)]
+    prices = [LabeledPrice("TestTo'lovi", price * 100)]
     context.bot.send_invoice(
         chat_id, title, description, payload, provider_token, start_parameter, currency, prices
     )
