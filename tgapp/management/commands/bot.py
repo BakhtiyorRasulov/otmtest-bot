@@ -3,7 +3,7 @@ import logging
 import json
 from tgapp.models import BotUsers, Subject
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, InlineKeyboardButton, \
-    InlineKeyboardMarkup, LabeledPrice, Update, PreCheckoutQuery
+    InlineKeyboardMarkup, LabeledPrice, Update, PreCheckoutQuery, ParseMode
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -308,7 +308,7 @@ def echo(update: Update, _: CallbackContext) -> None:
         reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
         #video_file = open(root_path + "/uploads/instruction.mp4", 'rb')
         url = "https://telegra.ph/OTMtest-Instruction-05-09"
-        update.message.reply_text(url, disable_web_page_preview=None,
+        update.message.reply_text(string[person.lang]['instructions_msg'], disable_web_page_preview=None, parse_mode=ParseMode.HTML,
         reply_markup=reply_kb_markup)
         return ConversationHandler.END
     if update.message.text == string[person.lang]['communication']:
