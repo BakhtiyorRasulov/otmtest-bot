@@ -452,6 +452,7 @@ def get_results(update: Update, context: CallbackContext) -> int:
         return WAITING_FOR_ANSWERS
     else:
         echo(update, context)
+        return ConversationHandler.END
 
     chat_id = update.message.chat_id
     title = "Click orqali to'lov"
