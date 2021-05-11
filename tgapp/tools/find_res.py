@@ -9,7 +9,7 @@ def read_csv(csv_file):
 
 
 def translate(specs):
-    with open(root_path + "/tgtest/tgapp/tools/sLang.json", encoding="utf-8") as jfile:
+    with open(root_path + "/tgapp/tools/sLang.json", encoding="utf-8") as jfile:
         data = json.load(jfile)
         specs = data[specs]   
     return specs
@@ -46,7 +46,7 @@ def normalize(results, isScholar, lang):
 
 
 def getResult(point, lang, typ, specs):
-    cfile = read_csv(root_path + "/tgtest/tgapp/tools/data.csv")
+    cfile = read_csv(root_path + "/tgapp/tools/data.csv")
     grant_result = ''
     contr_result = ''
     if lang == 'ru':

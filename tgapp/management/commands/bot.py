@@ -445,7 +445,7 @@ def get_results(update: Update, context: CallbackContext) -> int:
     logger.info("state: CONFIRM, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
     person = BotUsers.objects.get(chat_id=query.message.chat.id)
     if update.message.text == string[person.lang]['yes']:
-        update.message.reply_text(string[person.lang]['payment'])
+        pass
     elif update.message.text == string[person.lang]['no']:
         user_answers = ""
         update.message.reply_text(string[person.lang]['reenter'])
@@ -454,24 +454,27 @@ def get_results(update: Update, context: CallbackContext) -> int:
         echo(update, context)
         return ConversationHandler.END
 
-    chat_id = update.message.chat_id
-    title = "Click orqali to'lov"
-    title2 = "PayMe orqali to'lov"
-    description = "Test javoblari buyurtmasi uchun to'lov."
-    payload = "Test-Payload"
-    provider_token = payment_token
-    provider_token2 = payment_token2
-    start_parameter = "test-payment"
-    start_parameter2 = "payment-param"
-    currency = "UZS"
-    price = 10000
-    prices = [LabeledPrice("TestTo'lovi", price * 100)]
-    context.bot.send_invoice(
-        chat_id, title, description, payload, provider_token, start_parameter, currency, prices
-    )
-    context.bot.send_invoice(
-        chat_id, title2, description, payload, provider_token2, start_parameter2, currency, prices
-    )
+    fEarnedPoint, user_result = getPoint(person.lang, query.data, random_num, user_answers)
+    user_answers = ''
+    user_result = getSolid(user_result)
+    grant_result, contr_result = getResult(fEarnedPoint, person.lang, 'kunduzgi', query.data)
+    if len(grant_result.splitlines()) != 0:
+        if len(contr_result.splitlines()) != 0:
+            update.message.reply_text(string[person.lang]['pass'].format(fEarnedPoint, len(grant_result.splitlines())+len(contr_result)))
+            update.message.reply_text("Grant asosida:\n" + grant_result)
+            update.message.reply_text("Kontrakt asosida:\n" + contr_result)
+            update.message.reply_text(user_result)
+        else:
+            update.message.reply_text(string[person.lang]['pass'].format(fEarnedPoint, len(grant_result.splitlines())))
+            update.message.reply_text("Grant asosida:\n" + grant_result)
+            update.message.reply_text(user_result)
+    elif len(contr_result.splitlines()) != 0:
+            update.message.reply_text(string[person.lang]['pass'].format(fEarnedPoint, len(contr_result.splitlines())))
+            update.message.reply_text("Kontrakt asosida:\n" + contr_result)
+            update.message.reply_text(user_result)
+    else:
+        update.message.reply_text(string[person.lang]['fail'].format(fEarnedPoint))
+        update.message.reply_text(user_result)
     main_menu_keyboard = keyboard_generator(person)
     reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
     update.message.reply_text(
@@ -479,6 +482,48 @@ def get_results(update: Update, context: CallbackContext) -> int:
         reply_markup=reply_kb_markup,
     )
     return ConversationHandler.END
+
+
+# def get_results(update: Update, context: CallbackContext) -> int:
+#     global random_num, query, sResult, user_answers, counter
+#     user = update.message.from_user
+#     logger.info("state: CONFIRM, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
+#     person = BotUsers.objects.get(chat_id=query.message.chat.id)
+#     if update.message.text == string[person.lang]['yes']:
+#         update.message.reply_text(string[person.lang]['payment'])
+#     elif update.message.text == string[person.lang]['no']:
+#         user_answers = ""
+#         update.message.reply_text(string[person.lang]['reenter'])
+#         return WAITING_FOR_ANSWERS
+#     else:
+#         echo(update, context)
+#         return ConversationHandler.END
+
+#     chat_id = update.message.chat_id
+#     title = "Click orqali to'lov"
+#     title2 = "PayMe orqali to'lov"
+#     description = "Test javoblari buyurtmasi uchun to'lov."
+#     payload = "Test-Payload"
+#     provider_token = payment_token
+#     provider_token2 = payment_token2
+#     start_parameter = "test-payment"
+#     start_parameter2 = "payment-param"
+#     currency = "UZS"
+#     price = 10000
+#     prices = [LabeledPrice("TestTo'lovi", price * 100)]
+#     context.bot.send_invoice(
+#         chat_id, title, description, payload, provider_token, start_parameter, currency, prices
+#     )
+#     context.bot.send_invoice(
+#         chat_id, title2, description, payload, provider_token2, start_parameter2, currency, prices
+#     )
+#     main_menu_keyboard = keyboard_generator(person)
+#     reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
+#     update.message.reply_text(
+#         string[person.lang]['backto'],
+#         reply_markup=reply_kb_markup,
+#     )
+#     return ConversationHandler.END
 
 def precheckout_callback(update: Update, _: CallbackContext) -> None:
     print("CHECKOUT")
@@ -576,9 +621,9 @@ def main() -> None:
     dispatcher.add_handler(user_register_conv_handler)
     dispatcher.add_handler(user_info_conv_hendler)
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
-    dispatcher.add_handler(PreCheckoutQueryHandler(precheckout_callback))
-    dispatcher.add_handler(PreCheckoutQueryHandler(answer_precheckout_callback))
-    dispatcher.add_handler(MessageHandler(Filters.successful_payment, successful_payment_callback))
+    # dispatcher.add_handler(PreCheckoutQueryHandler(precheckout_callback))
+    # dispatcher.add_handler(PreCheckoutQueryHandler(answer_precheckout_callback))
+    # dispatcher.add_handler(MessageHandler(Filters.successful_payment, successful_payment_callback))
 
     updater.start_polling()
 
