@@ -5,7 +5,7 @@ import telegram
 from .codes import root_path
 
 def get_file(query_data, random_num):
-    answer_file = open(root_path + '/tgtest/answers/{}/{}.json'.format(
+    answer_file = open(root_path + '/answers/{}/{}.json'.format(
         query_data ,random_num))
     answers_data = json.load(answer_file)
     answers = answers_data['answers']
