@@ -381,6 +381,7 @@ def select_subject(update: Update, context: CallbackContext) -> int:
         query.message.reply_text(
             string[person.lang]['answer_msg']
         )
+        query.message.reply_text(string[person.lang]['enter_first'])
         return WAITING_FOR_ANSWERS
     else:
         main_menu_keyboard = [[KeyboardButton(string[person.lang]['back'])]]
@@ -396,6 +397,7 @@ def waiting_for_answers(update: Update, context: CallbackContext) -> int:
     global query, user_answers
     person = BotUsers.objects.get(chat_id=query.message.chat.id)
     user = update.message.from_user
+    query.message.reply_text(string[person.lang]['enter_second'])
     if update.message.text == string[person.lang]['back']:
         return echo(update, context)
     logger.info("state: WAITING_FOR_ANSWERS, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
