@@ -453,7 +453,7 @@ def get_results(update: Update, context: CallbackContext) -> int:
         pass
     elif update.message.text == string[person.lang]['no']:
         user_answers = ""
-        update.message.reply_text(string[person.lang]['reenter'])
+        update.message.reply_text(string[person.lang]['reenter']+"\n"+string[person.lang]['enter_first'])
         return WAITING_FOR_ANSWERS
     else:
         echo(update, context)
