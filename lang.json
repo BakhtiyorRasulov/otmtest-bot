@@ -29,7 +29,7 @@
             "backto" : "Kerakli boʻlimni tanlang:",
             "edit": "📝 Tahrirlash",
             "file_not_found": "Fayl topilmadi",
-            "answer_msg": "Test savollariga javoblarni quyidagi koʻrinishda yuboring:\nDastlab majburiy fanlar 45 ta\nKeyin maxsus fanlar 60 ta\n1️⃣ ABCDE.... 45 ta(bot javoblar yuborilishini kutadi)\n2️⃣ ABCDE.... 60 ta \nDIQQAT! 45 ta javob alohida(yuborish tugmasi), 60 ta javob alohida (yuborish tugmasi) yuboriladi.",
+            "answer_msg": "Test savollariga javoblarni dastlab, 45 ta majburiy fanlarga, so'ng 60 ta maxsus fanlarga {savol raqami}{javob} ko'rinishida yuboriladi.\n\nNamuna:\n\n1️⃣ 1A 2B 3C 4D...45C\n2️⃣ 1A 2B 3C 4D...60C",
             "pass" : "Umumiy ball {:.1f}\nQuyidagi yoʻnalishlar yuqorida toʻplagan ballingizga koʻra, maxsus algoritmga asoslanib qaysi OTMlarga ballingiz yetishini, ehtimolligi past yoʻnalishlardan boshlab yuqori boʻlganlariga qarab saralangan: {}\n❗️ Eslatma:  Natijalar hech qanday rasmiy qiymatga ega emas.",
             "fail" : "Siz {:.1f} ball toʻpladingiz. Afsuski toʻplagan ballingizga mos yoʻnalish topilmadi!",
             "confirm" : "Ushbu belgilangan test javoblarini tasdiqlaysizmi?",
