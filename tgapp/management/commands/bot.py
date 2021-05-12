@@ -402,9 +402,10 @@ def waiting_for_answers(update: Update, context: CallbackContext) -> int:
         return echo(update, context)
     logger.info("state: WAITING_FOR_ANSWERS, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
     stmp = update.message.text
+    stmp = stmp.split(' ')
     for i in range(0, 45):
         try:
-            user_answers = user_answers[:i] + stmp[i]
+            user_answers = user_answers[:i] + stmp[i][-1]
         except IndexError:
             user_answers = user_answers[:i] + '-'
     stmp = ''
@@ -418,10 +419,11 @@ def waiting_for_answers2(update: Update, context: CallbackContext) -> int:
     if update.message.text == string[person.lang]['back']:
         return echo(update, context)
     stmp = update.message.text
+    stmp = stmp.split(' ')
     logger.info("state: WAITING_FOR_ANSWERS2, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
     for i in range(45, 106):
         try:
-            user_answers = user_answers[:i] + stmp[i-45]
+            user_answers = user_answers[:i] + stmp[i-45][-1]
         except IndexError:
             user_answers = user_answers[:i] + '-'
     stmp = ''
