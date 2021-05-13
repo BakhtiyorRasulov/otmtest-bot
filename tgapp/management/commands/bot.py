@@ -307,9 +307,9 @@ def echo(update: Update, _: CallbackContext) -> None:
         main_menu_keyboard = keyboard_generator(person)
         reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
         #video_file = open(root_path + "/uploads/instruction.mp4", 'rb')
-        url = "https://telegra.ph/OTMtest-Instruction-05-09"
-        update.message.reply_text(string[person.lang]['instructions_msg'], disable_web_page_preview=None, parse_mode=ParseMode.HTML,
-        reply_markup=reply_kb_markup)
+        # update.message.reply_text(string[person.lang]['instructions_msg'], disable_web_page_preview=True, parse_mode=ParseMode.HTML,
+        # reply_markup=reply_kb_markup)
+        update.message.reply_text(string[person.lang]['instructions_preview'], reply_markup=reply_kb_markup)
         return ConversationHandler.END
     if update.message.text == string[person.lang]['communication']:
         main_menu_keyboard = keyboard_generator(person)
