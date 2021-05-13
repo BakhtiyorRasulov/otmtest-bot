@@ -422,7 +422,7 @@ def waiting_for_answers2(update: Update, context: CallbackContext) -> int:
     stmp = update.message.text
     stmp = stmp.split(' ')
     logger.info("state: WAITING_FOR_ANSWERS2, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
-    for i in range(45, 106):
+    for i in range(45, 105):
         try:
             user_answers = user_answers[:i] + stmp[i-45][-1]
         except IndexError:
