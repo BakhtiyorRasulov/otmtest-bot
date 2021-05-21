@@ -459,7 +459,7 @@ def get_results(update: Update, context: CallbackContext) -> int:
         echo(update, context)
         return ConversationHandler.END
 
-    print(query.data + " " + random_num)
+    print(str(query.data) + " " + str(random_num))
     fEarnedPoint, user_result = getPoint(person.lang, query.data, random_num, user_answers)
     user_answers = ''
     user_result = getSolid(user_result)
