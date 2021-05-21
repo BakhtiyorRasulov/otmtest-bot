@@ -399,9 +399,8 @@ def waiting_for_answers(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
     
     if update.message.text == string[person.lang]['back']:
-        echo(update, context)
-        return ConversationHandler.END
-    update.message.reply_text(string[person.lang]['enter_second'])
+        return echo(update, context)
+    query.message.reply_text(string[person.lang]['enter_second'])
     logger.info("state: WAITING_FOR_ANSWERS, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
     stmp = update.message.text
     stmp = stmp.split(' ')
