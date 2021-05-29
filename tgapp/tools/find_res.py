@@ -59,5 +59,6 @@ def getResult(point, lang, typ, specs):
                 grant_result = normalize(results, isScholar, lang)
             else:
                 contr_result = normalize(results, isScholar, lang)
+    cfile.close()
 
     return grant_result, contr_result
