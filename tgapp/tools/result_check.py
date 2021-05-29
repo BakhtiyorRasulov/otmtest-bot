@@ -9,6 +9,7 @@ def get_file(query_data, random_num):
         query_data ,random_num))
     answers_data = json.load(answer_file)
     answers = answers_data['answers']
+    answer_file.close()
 
     return answers
 
