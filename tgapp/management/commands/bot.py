@@ -3,7 +3,7 @@ import logging
 import json
 from tgapp.models import BotUsers, Subject
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, InlineKeyboardButton, \
-    InlineKeyboardMarkup, LabeledPrice, Update, PreCheckoutQuery, ParseMode
+    InlineKeyboardMarkup, Update
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -11,7 +11,6 @@ from telegram.ext import (
     MessageHandler,
     Filters,
     ConversationHandler,
-    PreCheckoutQueryHandler,
     CallbackContext,
 )
 import random
@@ -19,38 +18,36 @@ import random
 from tgapp.tools.result_check import getPoint
 from tgapp.tools.find_res import getResult
 from tgapp.tools.solidify_result import getSolid
-from .codes import root_path, payment_token, payment_token2, bot_token
+from tgproj.settings import BOT_TOKEN
 
-# Enable logging
+
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
+"""
+defaults for conv handler integers
+"""
 NAME, PHONE = range(2)
 PERSON_INFO, CHANGE_NAME, CHANGE_PHONE = range(3)
 CHANGE_LANGUAGE = range(1)
-
 SELECT_SUBJECT, WAITING_FOR_ANSWERS, WAITING_FOR_ANSWERS2, GET_RESULTS = range(4)
 
 with open('lang.json', encoding='utf-8') as json_file:
     string = json.load(json_file)
 
-# Globals
+"""
+Globals to integrate between methods and alogrithms
+"""
 random_num = 0
 query = ''
 sResult = ''
 user_answers = ''
 counter = 0
 
-# ----------------------------new user registrations------------------
 
 def start(update: Update, _: CallbackContext) -> int:
-#    reply_keyboard = [[string['uz']['lang'], string['ru']['lang']]]
-#    update.message.reply_text(
-#        string['ru']['choose_language'] + "\n\r" + string['uz']['choose_language'] + "\n\r",
-#        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
-#    )
     user = update.message.from_user
     lang='uz'
     person, created = BotUsers.objects.update_or_create(
@@ -85,7 +82,7 @@ def language(update: Update, _: CallbackContext) -> int:
     if update.message.text == string['uz']['lang']:
         lang = "uz"
     logger.info("state: LANGUAGE, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
-    person, created = BotUsers.objects.update_or_create(
+    person, _ = BotUsers.objects.update_or_create(
         chat_id=update.message.chat_id, defaults={"lang": lang}
     )
     person.save()
@@ -102,7 +99,7 @@ def language(update: Update, _: CallbackContext) -> int:
 def name(update: Update, _: CallbackContext) -> int:
     user = update.message.from_user
     logger.info("state: NAME, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
-    person, created = BotUsers.objects.update_or_create(
+    person, _ = BotUsers.objects.update_or_create(
         chat_id=update.message.chat_id, defaults={"last_name": update.message.text}
     )
     person.save()
@@ -125,7 +122,7 @@ def phone(update: Update, _: CallbackContext) -> int:
         phone_number = update.message.text
         logger.info("state: PHONE, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
 
-    person, created = BotUsers.objects.update_or_create(
+    person, _ = BotUsers.objects.update_or_create(
         chat_id=update.message.chat_id, defaults={"phone_number": phone_number, "status": True}
     )
     person.save()
@@ -142,19 +139,24 @@ def phone(update: Update, _: CallbackContext) -> int:
     return ConversationHandler.END
 
 
+"""
+unused function
+"""
+
+
 def stop(update: Update, _: CallbackContext) -> int:
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
-    person = BotUsers.objects.update(status=False)
+    BotUsers.objects.update(status=False)
     update.message.reply_text(
         'STOP', reply_markup=ReplyKeyboardRemove()
     )
     return ConversationHandler.END
 
 
-# ------------------------------------------------------------------
-
-# ----------------------------edit user registrations------------------
+"""
+functions related to person information create/edit
+"""
 
 
 def person_info_start(update: Update, _: CallbackContext) -> int:
@@ -252,9 +254,9 @@ def change_phone(update: Update, _: CallbackContext) -> int:
     return ConversationHandler.END
 
 
-# ------------------------------------------------------------------
-
-# ----------------------------change language------------------
+"""
+methods related to language
+"""
 
 
 def change_language_start(update: Update, _: CallbackContext) -> int:
@@ -288,7 +290,9 @@ def change_language(update: Update, _: CallbackContext) -> int:
     return ConversationHandler.END
 
 
-# ------------------------------------------------------------------
+"""
+main functions
+"""
 
 
 def echo(update: Update, _: CallbackContext) -> None:
@@ -306,9 +310,6 @@ def echo(update: Update, _: CallbackContext) -> None:
     if update.message.text == string[person.lang]['instructions']:
         main_menu_keyboard = keyboard_generator(person)
         reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-        #video_file = open(root_path + "/uploads/instruction.mp4", 'rb')
-        # update.message.reply_text(string[person.lang]['instructions_msg'], disable_web_page_preview=True, parse_mode=ParseMode.HTML,
-        # reply_markup=reply_kb_markup)
         update.message.reply_text(string[person.lang]['instructions_preview'], reply_markup=reply_kb_markup)
         return ConversationHandler.END
     if update.message.text == string[person.lang]['communication']:
@@ -349,6 +350,10 @@ def test_start(update: Update, _: CallbackContext) -> int:
 
 
 def select_subject(update: Update, context: CallbackContext) -> int:
+    """
+    select subjects based on user language
+    connects to database for returning respective subject's test file (pdf)
+    """
     global query
     user_answers = ""
     counter = 0
@@ -394,6 +399,9 @@ def select_subject(update: Update, context: CallbackContext) -> int:
 
 
 def waiting_for_answers(update: Update, context: CallbackContext) -> int:
+    """
+    waiting for answers divided into 2 sub to get update 2 times
+    """
     global query, user_answers
     person = BotUsers.objects.get(chat_id=query.message.chat.id)
     user = update.message.from_user
@@ -490,57 +498,14 @@ def get_results(update: Update, context: CallbackContext) -> int:
     return ConversationHandler.END
 
 
-# def get_results(update: Update, context: CallbackContext) -> int:
-#     global random_num, query, sResult, user_answers, counter
-#     user = update.message.from_user
-#     logger.info("state: CONFIRM, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
-#     person = BotUsers.objects.get(chat_id=query.message.chat.id)
-#     if update.message.text == string[person.lang]['yes']:
-#         update.message.reply_text(string[person.lang]['payment'])
-#     elif update.message.text == string[person.lang]['no']:
-#         user_answers = ""
-#         update.message.reply_text(string[person.lang]['reenter'])
-#         return WAITING_FOR_ANSWERS
-#     else:
-#         echo(update, context)
-#         return ConversationHandler.END
-
-#     chat_id = update.message.chat_id
-#     title = "Click orqali to'lov"
-#     title2 = "PayMe orqali to'lov"
-#     description = "Test javoblari buyurtmasi uchun to'lov."
-#     payload = "Test-Payload"
-#     provider_token = payment_token
-#     provider_token2 = payment_token2
-#     start_parameter = "test-payment"
-#     start_parameter2 = "payment-param"
-#     currency = "UZS"
-#     price = 10000
-#     prices = [LabeledPrice("TestTo'lovi", price * 100)]
-#     context.bot.send_invoice(
-#         chat_id, title, description, payload, provider_token, start_parameter, currency, prices
-#     )
-#     context.bot.send_invoice(
-#         chat_id, title2, description, payload, provider_token2, start_parameter2, currency, prices
-#     )
-#     main_menu_keyboard = keyboard_generator(person)
-#     reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-#     update.message.reply_text(
-#         string[person.lang]['backto'],
-#         reply_markup=reply_kb_markup,
-#     )
-#     return ConversationHandler.END
-
 def precheckout_callback(update: Update, _: CallbackContext) -> None:
     print("CHECKOUT")
     query = update.pre_checkout_query
-    # check the payload, is this from your bot?
     if query.invoice_payload != 'Test-Payload':
-        # answer False pre_checkout_query
         query.answer(ok=False, error_message="Xatolik yuz berdi.")
     else:
         query.answer(ok=True)
-        #update.answer_pre_checkout_query(query.id, True, error_message="TIMEOUT 10sec", api_kwargs=None)
+
 
 def answer_precheckout_callback(update: Update, _: CallbackContext) -> None:
     query = update.answer_pre_checkout_query
@@ -574,70 +539,63 @@ def successful_payment_callback(update: Update, _: CallbackContext) -> None:
         update.message.reply_text(string[person.lang]['fail'].format(fEarnedPoint))
         update.message.reply_text(user_result)
 
-def main() -> None:
-    updater = Updater(bot_token)
-    dispatcher = updater.dispatcher
-    user_register_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
-        states={
-            NAME: [MessageHandler(Filters.text & ~Filters.command, name)],
-            PHONE: [MessageHandler(Filters.text | Filters.contact & ~Filters.command, phone)],
-        },
-        fallbacks=[CommandHandler('stop', stop)],
-    )
-
-    user_info_conv_hendler = ConversationHandler(
-        entry_points=[MessageHandler(Filters.regex(
-            '^({}|{})$'.format(string['uz']['personal_information'], string['ru']['personal_information'])),
-                                     person_info_start)],
-        states={
-            PERSON_INFO: [MessageHandler(Filters.text & ~Filters.command, person_info)],
-            CHANGE_NAME: [MessageHandler(Filters.text & ~Filters.command, change_name)],
-            CHANGE_PHONE: [MessageHandler(Filters.text | Filters.contact & ~Filters.command, change_phone)],
-
-        },
-        fallbacks=[CommandHandler('stop', stop)],
-    )
-
-    change_language_conv_hendler = ConversationHandler(
-        entry_points=[MessageHandler(
-            Filters.regex('^({}|{})$'.format(string['uz']['change_language'], string['ru']['change_language'])),
-            change_language_start)],
-        states={
-            CHANGE_LANGUAGE: [MessageHandler(Filters.text & ~Filters.command, change_language)],
-        },
-        fallbacks=[CommandHandler('stop', stop)],
-    )
-    test_start_conv_handler = ConversationHandler(
-        entry_points=[
-            MessageHandler(Filters.regex('^({}|{})$'.format(string['uz']['start_test'], string['ru']['start_test'])),
-                           test_start)],
-        states={
-            SELECT_SUBJECT: [CallbackQueryHandler(select_subject)],
-            WAITING_FOR_ANSWERS: [MessageHandler(Filters.text & ~Filters.command, waiting_for_answers)],
-            WAITING_FOR_ANSWERS2: [MessageHandler(Filters.text & ~Filters.command, waiting_for_answers2)],
-            GET_RESULTS: [MessageHandler(Filters.text & ~Filters.command, get_results)],
-
-        },
-        fallbacks=[MessageHandler(Filters.regex('^({}|{})$'.format(string['uz']['back'], string['ru']['back'])), echo)],
-    )
-    dispatcher.add_handler(test_start_conv_handler)
-
-    dispatcher.add_handler(change_language_conv_hendler)
-    dispatcher.add_handler(user_register_conv_handler)
-    dispatcher.add_handler(user_info_conv_hendler)
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
-    # dispatcher.add_handler(PreCheckoutQueryHandler(precheckout_callback))
-    # dispatcher.add_handler(PreCheckoutQueryHandler(answer_precheckout_callback))
-    # dispatcher.add_handler(MessageHandler(Filters.successful_payment, successful_payment_callback))
-
-    updater.start_polling()
-
-    updater.idle()
-
 
 class Command(BaseCommand):
     help = 'tg bot'
 
     def handle(self, *args, **options):
-        main()
+        updater = Updater(BOT_TOKEN)
+        dispatcher = updater.dispatcher
+        user_register_conv_handler = ConversationHandler(
+            entry_points=[CommandHandler('start', start)],
+            states={
+                NAME: [MessageHandler(Filters.text & ~Filters.command, name)],
+                PHONE: [MessageHandler(Filters.text | Filters.contact & ~Filters.command, phone)],
+            },
+            fallbacks=[CommandHandler('stop', stop)],
+        )
+
+        user_info_conv_hendler = ConversationHandler(
+            entry_points=[MessageHandler(Filters.regex(
+                '^({}|{})$'.format(string['uz']['personal_information'], string['ru']['personal_information'])),
+                                        person_info_start)],
+            states={
+                PERSON_INFO: [MessageHandler(Filters.text & ~Filters.command, person_info)],
+                CHANGE_NAME: [MessageHandler(Filters.text & ~Filters.command, change_name)],
+                CHANGE_PHONE: [MessageHandler(Filters.text | Filters.contact & ~Filters.command, change_phone)],
+
+            },
+            fallbacks=[CommandHandler('stop', stop)],
+        )
+
+        change_language_conv_hendler = ConversationHandler(
+            entry_points=[MessageHandler(
+                Filters.regex('^({}|{})$'.format(string['uz']['change_language'], string['ru']['change_language'])),
+                change_language_start)],
+            states={
+                CHANGE_LANGUAGE: [MessageHandler(Filters.text & ~Filters.command, change_language)],
+            },
+            fallbacks=[CommandHandler('stop', stop)],
+        )
+        test_start_conv_handler = ConversationHandler(
+            entry_points=[
+                MessageHandler(Filters.regex('^({}|{})$'.format(string['uz']['start_test'], string['ru']['start_test'])),
+                            test_start)],
+            states={
+                SELECT_SUBJECT: [CallbackQueryHandler(select_subject)],
+                WAITING_FOR_ANSWERS: [MessageHandler(Filters.text & ~Filters.command, waiting_for_answers)],
+                WAITING_FOR_ANSWERS2: [MessageHandler(Filters.text & ~Filters.command, waiting_for_answers2)],
+                GET_RESULTS: [MessageHandler(Filters.text & ~Filters.command, get_results)],
+
+            },
+            fallbacks=[MessageHandler(Filters.regex('^({}|{})$'.format(string['uz']['back'], string['ru']['back'])), echo)],
+        )
+        dispatcher.add_handler(test_start_conv_handler)
+
+        dispatcher.add_handler(change_language_conv_hendler)
+        dispatcher.add_handler(user_register_conv_handler)
+        dispatcher.add_handler(user_info_conv_hendler)
+        dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
+
+        updater.start_polling()
+        updater.idle()

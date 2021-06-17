@@ -1,7 +1,4 @@
-import os
 import json
-from django.conf import settings
-import telegram
 from .codes import root_path
 
 def get_file(query_data, random_num):
