@@ -1,15 +1,15 @@
 import pandas as pd
-import os
-from django.conf import settings
 import json
-from .codes import root_path
+from tgproj.settings import BASE_DIR
+
+
 def read_csv(csv_file):
     cfile = pd.read_csv(csv_file)
     return cfile
 
 
 def translate(specs):
-    with open(root_path + "/tgapp/tools/sLang.json", encoding="utf-8") as jfile:
+    with open(BASE_DIR + "/tgapp/tools/sLang.json", encoding="utf-8") as jfile:
         data = json.load(jfile)
         specs = data[specs]   
     return specs
@@ -46,7 +46,7 @@ def normalize(results, isScholar, lang):
 
 
 def getResult(point, lang, typ, specs):
-    cfile = read_csv(root_path + "/tgapp/tools/data.csv")
+    cfile = read_csv(BASE_DIR + "/tgapp/tools/data.csv")
     grant_result = ''
     contr_result = ''
     if lang == 'ru':
@@ -59,6 +59,5 @@ def getResult(point, lang, typ, specs):
                 grant_result = normalize(results, isScholar, lang)
             else:
                 contr_result = normalize(results, isScholar, lang)
-    cfile.close()
 
     return grant_result, contr_result

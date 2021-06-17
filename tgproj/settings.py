@@ -12,7 +12,11 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 
 from pathlib import Path
 import os
+import environ
 
+
+env = environ.Env()
+environ.Env.read_env()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,12 +24,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '8#(n4pq9i1gt(-njsh#q56_s_8v+)+ptoc=3#aas54$rpa@n=8'
-
+SECRET_KEY = env('secret_key')
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env('debug')
 
-ALLOWED_HOSTS = ['35.194.148.33', '10.140.0.5', 'localhost']
+ALLOWED_HOSTS = env('hosts')
 
 
 # Application definition
@@ -120,3 +123,6 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+# Bot token
+BOT_TOKEN = env('bot_token')

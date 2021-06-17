@@ -4,4 +4,9 @@ tgapp/tools/__pycache__/
 tgapp/management/commands/__pycache__/
 tgapp/tools/code.py
 tgapp/management/commands/code.py
-
+/tgproj/__pycache__/
+/tgapp/migrations/
+/tgapp/__pycache__/
+/env/
+/.idea/
+tgproj/.env
