@@ -1,63 +1,38 @@
-import pandas as pd
+import csv
 import json
-from tgproj.settings import BASE_DIR
+from pathlib import Path
 
 
-def read_csv(csv_file):
-    cfile = pd.read_csv(csv_file)
-    return cfile
+DATA_DIR = Path(__file__).resolve().parent
 
 
-def translate(specs):
-    with open(BASE_DIR + "/tgapp/tools/sLang.json", encoding="utf-8") as jfile:
-        data = json.load(jfile)
-        specs = data[specs]   
-    return specs
-
-def sort(cfile, lang, typ, fsub, ssub):
-    new_cfile = cfile.loc[cfile["Lang"] == lang]
-    new_cfile = new_cfile.loc[new_cfile["Type"] == typ]
-    new_cfile = new_cfile.loc[new_cfile["FirstSub"] == fsub]
-    new_cfile = new_cfile.loc[new_cfile["SecondSub"] == ssub]
-    return new_cfile
-
-
-def find_result(cfile, isScholar, point):
-    new_cfile = cfile.loc[cfile[isScholar] <= round(point * 100 / 280.5)]
-    if point > 270:
-        cfile = cfile.sort_values(by=[isScholar], ascending=False).iloc[:20]
-        return cfile
-    elif len(new_cfile) >= 1:
-        new_cfile.sort_values(by=[isScholar], ascending=False)
-        if len(new_cfile) > 5:
-            new_cfile = new_cfile.iloc[:20]
-        return new_cfile
+def qualifying_rows(rows, column, score):
+    thresholds = [(row, float(row[column])) for row in rows if row[column].strip()]
+    if score > 270:
+        thresholds.sort(key=lambda entry: entry[1], reverse=True)
     else:
-        return []
+        cutoff = round(score * 100 / 280.5)
+        thresholds = [(row, threshold) for row, threshold in thresholds if threshold <= cutoff]
+    return [row for row, _ in thresholds[:20]]
 
 
-def normalize(results, isScholar, lang):
-    sResult = ""   
-    for i in range(len(results)):
-        sResult += "{}. {}: {}\n".format(i+1, results["UniverName"].iloc[i].replace('Va', 'va'),
-        results["Name"].iloc[i])
-    
-    return sResult
+def format_rows(rows):
+    return "".join(
+        f"{index}. {row['UniverName'].replace('Va', 'va')}: {row['Name']}\n"
+        for index, row in enumerate(rows, 1)
+    )
 
 
 def getResult(point, lang, typ, specs):
-    cfile = read_csv(BASE_DIR + "/tgapp/tools/data.csv")
-    grant_result = ''
-    contr_result = ''
-    if lang == 'ru':
-        specs = translate(specs)
-    for isScholar in ["PSchol", "PCont"]:
-        results = sort(cfile, lang, typ, specs.split('-')[0], specs.split('-')[1])
-        results = find_result(results, isScholar, float(point))
-        if len(results) !=0 :
-            if isScholar == "PSchol":
-                grant_result = normalize(results, isScholar, lang)
-            else:
-                contr_result = normalize(results, isScholar, lang)
-
-    return grant_result, contr_result
+    if lang == "ru":
+        with (DATA_DIR / "sLang.json").open(encoding="utf-8") as translations:
+            specs = json.load(translations)[specs]
+    first, second = specs.split("-", 1)
+    with (DATA_DIR / "data.csv").open(encoding="utf-8", newline="") as file:
+        rows = [
+            row for row in csv.DictReader(file)
+            if (row["Lang"], row["Type"], row["FirstSub"], row["SecondSub"])
+            == (lang, typ, first, second)
+        ]
+    score = float(point)
+    return tuple(format_rows(qualifying_rows(rows, column, score)) for column in ("PSchol", "PCont"))

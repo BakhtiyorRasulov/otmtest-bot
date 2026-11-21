@@ -1,52 +1,28 @@
 import json
-from .codes import root_path
 
-def get_file(query_data, random_num):
-    answer_file = open(root_path + '/answers/{}/{}.json'.format(
-        query_data ,random_num))
-    answers_data = json.load(answer_file)
-    answers = answers_data['answers']
-    answer_file.close()
+from django.conf import settings
 
+
+def get_file(subject_name, test_number):
+    root = settings.ANSWERS_DIR.resolve()
+    path = (root / subject_name / f"{test_number}.json").resolve()
+    if not path.is_relative_to(root):
+        raise ValueError("Invalid answer key path.")
+    with path.open(encoding="utf-8") as answer_file:
+        answers = json.load(answer_file)["answers"]
+    if (not isinstance(answers, list) or len(answers) != 105
+            or any(not isinstance(answer, str) or not answer.replace(".", "").strip() for answer in answers)):
+        raise ValueError("The answer key must contain 105 answers.")
     return answers
-
-
-def makeStringToList(anystring):
-    anystring = list(anystring)
-    returnString = []
-    for i in anystring:
-        returnString.append([i, True])
-    return returnString
-
-
-def normalize(anylist):
-    for i in range(len(anylist)):
-        anylist[i] = anylist[i].replace('.', '')
-
-    return anylist
-
-
-def calculate_point(answers, user_answers):
-    point = 0
-    for i in range(len(answers)):
-        try:
-            if answers[i][-1] == user_answers[i][0].upper():
-                if i < 45:
-                    point += 2.1
-                else:
-                    point += 3.1
-            else:
-                    user_answers[i][1] = False
-        except IndexError:
-            pass
-
-    return point, user_answers
 
 
 def getPoint(person_lang, query_data, random_num, user_answers):
     answers = get_file(query_data, random_num)
-    answers = normalize(answers)
-    user_answers = makeStringToList(user_answers)
-    point, user_answers = calculate_point(answers, user_answers)
-
-    return point, user_answers
+    earned_tenths = 0
+    results = []
+    for index, (expected, submitted) in enumerate(zip(answers, user_answers, strict=True)):
+        correct = expected.replace(".", "").strip()[-1].upper() == submitted.upper()
+        if correct:
+            earned_tenths += 21 if index < 45 else 31
+        results.append([submitted, correct])
+    return earned_tenths / 10, results

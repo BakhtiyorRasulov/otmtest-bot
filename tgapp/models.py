@@ -3,12 +3,12 @@ from django.utils.timezone import now
 
 
 class BotUsers(models.Model):
-    chat_id = models.IntegerField(blank=True, null=True)
+    chat_id = models.BigIntegerField(blank=True, null=True)
     phone_number = models.CharField(max_length=30, blank=True, null=True)
     last_name = models.CharField(max_length=30, blank=True, null=True)
     lang = models.CharField(max_length=10, blank=True, null=True)
     status = models.BooleanField(default=False)
-    last_test_no = models.CharField(max_length=10, default=0)
+    last_test_no = models.CharField(max_length=10, default='0')
 
     def __str__(self):
         return '{} {}'.format(self.chat_id, self.last_name)

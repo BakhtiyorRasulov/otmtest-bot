@@ -1,601 +1,286 @@
-from django.core.management.base import BaseCommand  # , CommandError
-import logging
 import json
+import logging
+from dataclasses import dataclass
+from enum import Enum, auto
+
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
+from django.db import close_old_connections
+from telebot import TeleBot, types, util
+
 from tgapp.models import BotUsers, Subject
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, InlineKeyboardButton, \
-    InlineKeyboardMarkup, Update
-from telegram.ext import (
-    Updater,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    Filters,
-    ConversationHandler,
-    CallbackContext,
-)
-import random
-
-from tgapp.tools.result_check import getPoint
 from tgapp.tools.find_res import getResult
+from tgapp.tools.result_check import getPoint
 from tgapp.tools.solidify_result import getSolid
-from tgproj.settings import BOT_TOKEN
 
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
-)
 logger = logging.getLogger(__name__)
 
-"""
-defaults for conv handler integers
-"""
-NAME, PHONE = range(2)
-PERSON_INFO, CHANGE_NAME, CHANGE_PHONE = range(3)
-CHANGE_LANGUAGE = range(1)
-SELECT_SUBJECT, WAITING_FOR_ANSWERS, WAITING_FOR_ANSWERS2, GET_RESULTS = range(4)
 
-with open('lang.json', encoding='utf-8') as json_file:
-    string = json.load(json_file)
-
-"""
-Globals to integrate between methods and alogrithms
-"""
-random_num = 0
-query = ''
-sResult = ''
-user_answers = ''
-counter = 0
+class Stage(Enum):
+    NAME = auto()
+    PHONE = auto()
+    PROFILE = auto()
+    EDIT_NAME = auto()
+    EDIT_PHONE = auto()
+    LANGUAGE = auto()
+    SUBJECT = auto()
+    FIRST_ANSWERS = auto()
+    SECOND_ANSWERS = auto()
+    CONFIRM = auto()
 
 
-def start(update: Update, _: CallbackContext) -> int:
-    user = update.message.from_user
-    lang='uz'
-    person, created = BotUsers.objects.update_or_create(
-        chat_id=update.message.chat_id, defaults={"lang": lang}
-    )
-    person.save()
-    update.message.reply_text(
-        "{} {} {}".format(string[lang]['hello'], user.first_name, string[lang]['hello_massage']),
-        reply_markup=ReplyKeyboardRemove(),
-    )
-    update.message.reply_text(
-        string[lang]['name_input']
-    )
-    return NAME
-#    return LANGUAGE
+@dataclass
+class Session:
+    stage: Stage
+    subject_name: str = ""
+    language: str = ""
+    test_number: int = 0
+    answers: str = ""
+    subject_message_id: int | None = None
 
 
-def keyboard_generator(person):
-    menu_keyboard = [[KeyboardButton(string[person.lang]['start_test']),
-                      KeyboardButton(string[person.lang]['instructions'])],
-                     [KeyboardButton(string[person.lang]['communication']),
-                      KeyboardButton(string[person.lang]['personal_information'])],
-                     ]
-    return menu_keyboard
+def keyboard(*rows):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    for row in rows:
+        markup.row(*row)
+    return markup
 
 
-def language(update: Update, _: CallbackContext) -> int:
-    user = update.message.from_user
-    lang = "uz"
-    if update.message.text == string['ru']['lang']:
-        lang = "ru"
-    if update.message.text == string['uz']['lang']:
-        lang = "uz"
-    logger.info("state: LANGUAGE, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
-    person, _ = BotUsers.objects.update_or_create(
-        chat_id=update.message.chat_id, defaults={"lang": lang}
-    )
-    person.save()
-    update.message.reply_text(
-        "{} {} {}".format(string[lang]['hello'], user.first_name, string[lang]['hello_massage']),
-        reply_markup=ReplyKeyboardRemove(),
-    )
-    update.message.reply_text(
-        string[lang]['name_input']
-    )
-    return NAME
+def parse_answers(text, count):
+    tokens = text.split(" ")
+    return "".join(token[-1:] or "-" for token in tokens[:count]).ljust(count, "-")
 
 
-def name(update: Update, _: CallbackContext) -> int:
-    user = update.message.from_user
-    logger.info("state: NAME, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
-    person, _ = BotUsers.objects.update_or_create(
-        chat_id=update.message.chat_id, defaults={"last_name": update.message.text}
-    )
-    person.save()
-    reply_markup = ReplyKeyboardMarkup([[KeyboardButton(string[person.lang]['send_phone_number'],
-                                                        request_contact=True)]],
-                                       resize_keyboard=True, one_time_keyboard=True)
-    update.message.reply_text(
-        string[person.lang]['phone_input'], reply_markup=reply_markup
-    )
-    return PHONE
-
-
-def phone(update: Update, _: CallbackContext) -> int:
-    user = update.message.from_user
-    if update.message.contact is not None:
-        phone_number = update.message.contact.phone_number
-        logger.info("state: PHONE, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name,
-                    update.message.contact.phone_number)
-    else:
-        phone_number = update.message.text
-        logger.info("state: PHONE, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
-
-    person, _ = BotUsers.objects.update_or_create(
-        chat_id=update.message.chat_id, defaults={"phone_number": phone_number, "status": True}
-    )
-    person.save()
-    main_menu_keyboard = keyboard_generator(person)
-    reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-    update.message.reply_text(
-        string[person.lang]['register_success'],
-    )
-    update.message.reply_text(
-        string[person.lang]['select_section'],
-        reply_markup=reply_kb_markup,
-    )
-
-    return ConversationHandler.END
-
-
-"""
-unused function
-"""
-
-
-def stop(update: Update, _: CallbackContext) -> int:
-    user = update.message.from_user
-    logger.info("User %s canceled the conversation.", user.first_name)
-    BotUsers.objects.update(status=False)
-    update.message.reply_text(
-        'STOP', reply_markup=ReplyKeyboardRemove()
-    )
-    return ConversationHandler.END
-
-
-"""
-functions related to person information create/edit
-"""
-
-
-def person_info_start(update: Update, _: CallbackContext) -> int:
-    user = update.message.from_user
-    logger.info("state: PERSON_INFO, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name,
-                update.message.text)
-
-    person = BotUsers.objects.get(chat_id=update.message.chat_id)
-
-    if person.status:
-        status = "active"
-    else:
-        status = "passive"
-    main_menu_keyboard = [[KeyboardButton(string[person.lang]['edit'])],
-                          [KeyboardButton(string[person.lang]['back'])]]
-    reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-    text = "{} {}\n\r{} {}\n\r{} {}".format(
-        string[person.lang]['your_name'], person.last_name,
-        string[person.lang]['your_phone'], person.phone_number,
-        'id:', user['id']
-    )
-
-    update.message.reply_text(text, reply_markup=reply_kb_markup)
-
-    return PERSON_INFO
-
-
-def person_info(update: Update, _: CallbackContext) -> int:
-    user = update.message.from_user
-    logger.info("state: PERSON_INFO, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name,
-                update.message.text)
-
-    person = BotUsers.objects.get(chat_id=update.message.chat_id)
-    main_menu_keyboard = [[KeyboardButton(string[person.lang]['back'])]]
-    reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-    if update.message.text == string[person.lang]['edit']:
-        update.message.reply_text(
-            string[person.lang]['name_input'],
-            reply_markup=reply_kb_markup
+class ExamBot:
+    def __init__(self, client):
+        self.client = client
+        self.strings = json.loads((settings.BASE_DIR / "lang.json").read_text(encoding="utf-8"))
+        self.sessions = {}
+        client.register_message_handler(
+            self.handle_message, content_types=["text", "contact"], chat_types=["private"]
         )
-        return CHANGE_NAME
+        client.register_callback_query_handler(self.handle_subject, func=lambda query: True)
 
-    if update.message.text == string[person.lang]['back']:
-        person = BotUsers.objects.get(chat_id=update.message.chat_id)
-        main_menu_keyboard = keyboard_generator(person)
-        reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-        update.message.reply_text(
-            string[person.lang]['backto'],
-            reply_markup=reply_kb_markup,
-        )
-        return ConversationHandler.END
+    def send(self, chat_id, text, markup=None):
+        parts = [part for part in util.smart_split(text) if part]
+        for part in parts[:-1]:
+            self.client.send_message(chat_id, part)
+        return self.client.send_message(chat_id, parts[-1], reply_markup=markup)
 
+    def menu(self, person, labels, message="select_section"):
+        self.send(person.chat_id, labels[message], keyboard(
+            (labels["start_test"], labels["instructions"]),
+            (labels["communication"], labels["personal_information"]),
+            (labels["change_language"],),
+        ))
 
-def change_name(update: Update, callback: CallbackContext) -> int:
-    user = update.message.from_user
-    logger.info("state: CHANGE_NAME, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name,
-                update.message.text)
-    person = BotUsers.objects.get(chat_id=update.message.chat_id)
-    if update.message.text == string[person.lang]['back']:
-        echo(update, callback)
-        return ConversationHandler.END
-        
-    person, created = BotUsers.objects.update_or_create(
-        chat_id=update.message.chat_id, defaults={"last_name": update.message.text}
-    )
-    person.save()
-    reply_markup = ReplyKeyboardMarkup(
-        [[KeyboardButton(string[person.lang]['send_phone_number'], request_contact=True)]], resize_keyboard=True,
-        one_time_keyboard=True)
-    update.message.reply_text(
-        string[person.lang]['phone_input'], reply_markup=reply_markup
-    )
-    return CHANGE_PHONE
+    def ask_phone(self, chat_id, labels):
+        self.send(chat_id, labels["phone_input"], keyboard(
+            (types.KeyboardButton(labels["send_phone_number"], request_contact=True),),
+        ))
 
+    def handle_message(self, message):
+        close_old_connections()
+        chat_id = message.chat.id
+        command = (message.text or "").split(maxsplit=1)
+        command = command[0].split("@", 1)[0] if command else ""
+        if command == "/stop":
+            BotUsers.objects.filter(chat_id=chat_id).update(status=False)
+            self.sessions.pop(chat_id, None)
+            self.send(chat_id, "STOP", types.ReplyKeyboardRemove())
+            return
+        if command == "/start":
+            self.sessions.pop(chat_id, None)
+            person, _ = BotUsers.objects.get_or_create(chat_id=chat_id, defaults={"lang": "uz"})
+            labels = self.strings.get(person.lang, self.strings["uz"])
+            self.send(chat_id, f"{labels['hello']} {message.from_user.first_name} {labels['hello_massage']}",
+                      types.ReplyKeyboardRemove())
+            self.send(chat_id, labels["name_input"])
+            self.sessions[chat_id] = Session(Stage.NAME)
+            return
+        if command.startswith("/"):
+            return
 
-def change_phone(update: Update, _: CallbackContext) -> int:
-    user = update.message.from_user
-    if update.message.contact is not None:
-        phone_number = update.message.contact.phone_number
-    else:
-        phone_number = update.message.text
+        person = BotUsers.objects.filter(chat_id=chat_id).first()
+        if person is None:
+            return
+        session = self.sessions.get(chat_id)
+        if not person.status and (session is None or session.stage not in {Stage.NAME, Stage.PHONE}):
+            return
 
-    logger.info("state: CHANGE_PHONE, %d %s: %s ", update.message.chat_id, user.first_name, phone_number)
+        labels = self.strings.get(person.lang, self.strings["uz"])
+        if message.text == labels["back"] and session and session.stage not in {Stage.NAME, Stage.PHONE}:
+            self.sessions.pop(chat_id, None)
+            self.menu(person, labels, "backto")
+        elif session:
+            self.handle_session(person, labels, session, message)
+        elif message.text is not None:
+            self.handle_menu(person, labels, message.text)
 
-    person, created = BotUsers.objects.update_or_create(
-        chat_id=update.message.chat_id, defaults={"phone_number": phone_number, "status": True}
-    )
-    person.save()
-    main_menu_keyboard = keyboard_generator(person)
-    reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-    update.message.reply_text(
-        string[person.lang]['select_section'],
-        reply_markup=reply_kb_markup,
-    )
-    return ConversationHandler.END
+    def handle_menu(self, person, labels, text):
+        chat_id = person.chat_id
+        if text == labels["start_test"]:
+            markup = types.InlineKeyboardMarkup()
+            for subject in Subject.objects.order_by("pk"):
+                name = subject.name_ru if person.lang == "ru" else subject.name_uz
+                if name:
+                    markup.add(types.InlineKeyboardButton(name, callback_data=f"subject:{subject.pk}"))
+            if not markup.keyboard:
+                self.send(chat_id, labels["file_not_found"])
+                return
+            self.send(chat_id, labels["start_test"], keyboard((labels["back"],)))
+            sent = self.send(chat_id, labels["start_test_msg"], markup)
+            self.sessions[chat_id] = Session(Stage.SUBJECT, subject_message_id=sent.message_id)
+        elif text == labels["personal_information"]:
+            self.send(chat_id, f"{labels['your_name']} {person.last_name}\n"
+                      f"{labels['your_phone']} {person.phone_number}\nid: {chat_id}",
+                      keyboard((labels["edit"],), (labels["back"],)))
+            self.sessions[chat_id] = Session(Stage.PROFILE)
+        elif text == labels["change_language"]:
+            self.send(chat_id, f"{self.strings['ru']['choose_language']}\n{self.strings['uz']['choose_language']}",
+                      keyboard(tuple(labels["lang"] for labels in self.strings.values())))
+            self.sessions[chat_id] = Session(Stage.LANGUAGE)
+        elif text == labels["instructions"]:
+            self.menu(person, labels, "instructions_preview")
+        elif text == labels["communication"]:
+            self.menu(person, labels, "communication_msg")
+        elif text == labels["back"]:
+            self.menu(person, labels, "backto")
 
+    def handle_session(self, person, labels, session, message):
+        chat_id = person.chat_id
+        text = message.text
+        match session.stage:
+            case Stage.NAME | Stage.EDIT_NAME if text is not None:
+                if not text.strip() or len(text) > BotUsers._meta.get_field("last_name").max_length:
+                    self.send(chat_id, labels["name_input"])
+                    return
+                person.last_name = text
+                person.save(update_fields=["last_name"])
+                self.ask_phone(chat_id, labels)
+                session.stage = Stage.PHONE if session.stage == Stage.NAME else Stage.EDIT_PHONE
+            case Stage.PHONE | Stage.EDIT_PHONE:
+                phone = message.contact.phone_number if message.contact else text
+                if not phone or not phone.strip() or len(phone) > BotUsers._meta.get_field("phone_number").max_length:
+                    self.ask_phone(chat_id, labels)
+                    return
+                person.phone_number = phone
+                person.status = True
+                person.save(update_fields=["phone_number", "status"])
+                self.sessions.pop(chat_id, None)
+                if session.stage == Stage.PHONE:
+                    self.send(chat_id, labels["register_success"])
+                self.menu(person, labels)
+            case Stage.PROFILE if text == labels["edit"]:
+                self.send(chat_id, labels["name_input"], keyboard((labels["back"],)))
+                session.stage = Stage.EDIT_NAME
+            case Stage.LANGUAGE:
+                for lang, translations in self.strings.items():
+                    if text == translations["lang"]:
+                        person.lang = lang
+                        person.save(update_fields=["lang"])
+                        self.sessions.pop(chat_id, None)
+                        self.menu(person, translations)
+                        break
+            case Stage.FIRST_ANSWERS if text is not None:
+                self.send(chat_id, labels["enter_second"])
+                session.answers = parse_answers(text, 45)
+                session.stage = Stage.SECOND_ANSWERS
+            case Stage.SECOND_ANSWERS if text is not None:
+                answers = session.answers + parse_answers(text, 60)
+                rows = ["".join(f"{index + 1:>3}. {answers[index]:3}"
+                                for index in range(row, 105, 21)) for row in range(21)]
+                self.send(chat_id, "\n".join(rows) + "\n" + labels["confirm"],
+                          keyboard((labels["yes"], labels["no"]), (labels["back"],)))
+                session.answers = answers
+                session.stage = Stage.CONFIRM
+            case Stage.CONFIRM if text == labels["no"]:
+                self.send(chat_id, labels["reenter"] + "\n" + labels["enter_first"])
+                session.answers = ""
+                session.stage = Stage.FIRST_ANSWERS
+            case Stage.CONFIRM if text == labels["yes"]:
+                self.show_results(person, labels, session)
 
-"""
-methods related to language
-"""
+    def handle_subject(self, query):
+        close_old_connections()
+        self.client.answer_callback_query(query.id)
+        message = query.message
+        if not message or message.chat.type != "private" or message.chat.id != query.from_user.id:
+            return
+        chat_id = message.chat.id
+        session = self.sessions.get(chat_id)
+        if not session or session.stage != Stage.SUBJECT or session.subject_message_id != message.message_id:
+            return
+        prefix, _, subject_id = (query.data or "").partition(":")
+        if prefix != "subject" or not subject_id.isascii() or not subject_id.isdecimal() or len(subject_id) > 18:
+            return
 
+        person = BotUsers.objects.filter(chat_id=chat_id, status=True).first()
+        subject = Subject.objects.filter(pk=int(subject_id)).first()
+        if person is None or subject is None:
+            return
+        language = "ru" if person.lang == "ru" else "uz"
+        labels = self.strings[language]
+        subject_name = subject.name_ru if language == "ru" else subject.name_uz
+        files = list(subject.file_set.filter(language=language).order_by("pk"))
+        if not subject_name or not files:
+            self.send(chat_id, labels["file_not_found"])
+            return
 
-def change_language_start(update: Update, _: CallbackContext) -> int:
-    reply_keyboard = [[string['uz']['lang'], string['ru']['lang']]]
-    update.message.reply_text(
-        string['ru']['choose_language'] + "\n\r" + string['uz']['choose_language'] + "\n\r",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
-    )
-    return CHANGE_LANGUAGE
-
-
-def change_language(update: Update, _: CallbackContext) -> int:
-    user = update.message.from_user
-    lang = "uz"
-    if update.message.text == string['ru']['lang']:
-        lang = "ru"
-    if update.message.text == string['uz']['lang']:
-        lang = "uz"
-    logger.info("state: CHANGE_LANGUAGE, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name,
-                update.message.text)
-    person, created = BotUsers.objects.update_or_create(
-        chat_id=update.message.chat_id, defaults={"lang": lang}
-    )
-    person.save()
-    main_menu_keyboard = keyboard_generator(person)
-    reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-    update.message.reply_text(
-        string[person.lang]['select_section'],
-        reply_markup=reply_kb_markup,
-    )
-    return ConversationHandler.END
-
-
-"""
-main functions
-"""
-
-
-def echo(update: Update, _: CallbackContext) -> None:
-    user = update.message.from_user
-    person = BotUsers.objects.get(chat_id=update.message.chat_id)
-    logger.info("state: ECHO, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
-    if update.message.text == string[person.lang]['back']:
-        main_menu_keyboard = keyboard_generator(person)
-        reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-        update.message.reply_text(
-            string[person.lang]['backto'],
-            reply_markup=reply_kb_markup,
-        )
-        return ConversationHandler.END
-    if update.message.text == string[person.lang]['instructions']:
-        main_menu_keyboard = keyboard_generator(person)
-        reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-        update.message.reply_text(string[person.lang]['instructions_preview'], reply_markup=reply_kb_markup)
-        return ConversationHandler.END
-    if update.message.text == string[person.lang]['communication']:
-        main_menu_keyboard = keyboard_generator(person)
-        reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-        update.message.reply_text(
-            string[person.lang]['communication_msg'],
-            reply_markup=reply_kb_markup,
-        )
-        return ConversationHandler.END
-
-
-def test_start(update: Update, _: CallbackContext) -> int:
-    user = update.message.from_user
-    logger.info("state: START_TEST, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
-    person = BotUsers.objects.get(chat_id=update.message.chat_id)
-
-    main_menu_keyboard = [[KeyboardButton(string[person.lang]['back'])]]
-    reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-    update.message.reply_text(
-        string[person.lang]['start_test'],
-        reply_markup=reply_kb_markup,
-    )
-    subject = Subject.objects.all()
-    keyboard = []
-    for s in subject:
-        if person.lang == 'uz':
-            keyboard.append([InlineKeyboardButton(s.name_uz, callback_data=s.name_uz)])
-        if person.lang == 'ru':
-            keyboard.append([InlineKeyboardButton(s.name_ru, callback_data=s.name_ru)])
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(
-        string[person.lang]['start_test_msg'],
-        reply_markup=reply_markup
-    )
-
-    return SELECT_SUBJECT
-
-
-def select_subject(update: Update, context: CallbackContext) -> int:
-    """
-    select subjects based on user language
-    connects to database for returning respective subject's test file (pdf)
-    """
-    global query
-    user_answers = ""
-    counter = 0
-    query = update.callback_query
-    person = BotUsers.objects.get(chat_id=query.message.chat.id)
-    query.answer()
-    query.delete_message()
-    logger.info("state: SELECT_SUBJECT, chat_id: %d, %s: %s ", query.message.chat.id, query.message.chat.username,
-                query.data)
-
-    if person.lang == 'uz':
-        subject = Subject.objects.get(name_uz=query.data)
-    if person.lang == 'ru':
-        subject = Subject.objects.get(name_ru=query.data)
-    subject_files = subject.file_set.filter(language=str(person.lang))
-
-    file_quantity = subject_files.count()
-    if file_quantity > 0:
-        global random_num
-        if int(person.last_test_no)+1 > file_quantity:
-            person.last_test_no = '1'
-            person.save()
-        else:
-            person.last_test_no = str(int(person.last_test_no)+1)
-            person.save()
-        random_num = int(person.last_test_no)
-        random_file_url = subject.file_set.filter(language=str(person.lang))[random_num-1].upload
-        document = open(str(random_file_url), 'rb')
-        query.message.reply_document(document)
-        query.message.reply_text(
-            string[person.lang]['answer_msg']
-        )
-        query.message.reply_text(string[person.lang]['enter_first'])
-        return WAITING_FOR_ANSWERS
-    else:
-        main_menu_keyboard = [[KeyboardButton(string[person.lang]['back'])]]
-        reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-        query.message.reply_text(
-            string[person.lang]['file_not_found'],
-            reply_markup=reply_kb_markup
-        )
-        echo(update, context)
-
-
-def waiting_for_answers(update: Update, context: CallbackContext) -> int:
-    """
-    waiting for answers divided into 2 sub to get update 2 times
-    """
-    global query, user_answers
-    person = BotUsers.objects.get(chat_id=query.message.chat.id)
-    user = update.message.from_user
-    
-    if update.message.text == string[person.lang]['back']:
-        return echo(update, context)
-    query.message.reply_text(string[person.lang]['enter_second'])
-    logger.info("state: WAITING_FOR_ANSWERS, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
-    stmp = update.message.text
-    stmp = stmp.split(' ')
-    for i in range(0, 45):
+        stored_number = person.last_test_no
+        previous = int(stored_number) if stored_number.isascii() and stored_number.isdecimal() else 0
+        test_number = previous + 1 if previous < len(files) else 1
         try:
-            user_answers = user_answers[:i] + stmp[i][-1]
-        except IndexError:
-            user_answers = user_answers[:i] + '-'
-    stmp = ''
-    return WAITING_FOR_ANSWERS2
+            with files[test_number - 1].upload.open("rb") as document:
+                self.client.send_document(chat_id, document)
+        except OSError:
+            self.send(chat_id, labels["file_not_found"])
+            return
 
+        person.last_test_no = str(test_number)
+        person.save(update_fields=["last_test_no"])
+        self.sessions[chat_id] = Session(Stage.FIRST_ANSWERS, subject_name, language, test_number)
+        self.send(chat_id, labels["answer_msg"])
+        self.send(chat_id, labels["enter_first"])
 
-def waiting_for_answers2(update: Update, context: CallbackContext) -> int:
-    global query, user_answers
-    person = BotUsers.objects.get(chat_id=query.message.chat.id)
-    user = update.message.from_user
-    if update.message.text == string[person.lang]['back']:
-        return echo(update, context)
-    stmp = update.message.text
-    stmp = stmp.split(' ')
-    logger.info("state: WAITING_FOR_ANSWERS2, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
-    for i in range(45, 105):
+    def show_results(self, person, labels, session):
+        chat_id = person.chat_id
         try:
-            user_answers = user_answers[:i] + stmp[i-45][-1]
-        except IndexError:
-            user_answers = user_answers[:i] + '-'
-    stmp = ''
-    for i in range(int(len(user_answers)/5)):
-        for n in range(5):
-            stmp += '{:3s}{:3}'.format(str(i+1+int(len(user_answers)/5)*n)+'.', str(user_answers[i+int(len(user_answers)/5)*n]))
-        stmp += '\n'
-    menu_keyboard = [[KeyboardButton(string[person.lang]['yes']),
-                      KeyboardButton(string[person.lang]['no'])],
-                     [KeyboardButton(string[person.lang]['back'])],]
-    reply_kb_markup = ReplyKeyboardMarkup(menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-    repl_msg = stmp+"\n"+string[person.lang]['confirm']
-    update.message.reply_text(
-            repl_msg,
-            reply_markup=reply_kb_markup,
-        )
-    return GET_RESULTS
+            score, result = getPoint(session.language, session.subject_name, session.test_number, session.answers)
+            grant, contract = getResult(score, session.language, "kunduzgi", session.subject_name)
+        except (OSError, ValueError, KeyError, TypeError):
+            logger.warning("Exam results could not be loaded.")
+            self.send(chat_id, labels["file_not_found"])
+            return
+        total = len(grant.splitlines()) + len(contract.splitlines())
+        self.send(chat_id, labels["pass"].format(score, total) if total else labels["fail"].format(score))
+        if grant:
+            self.send(chat_id, "Grant asosida:\n" + grant)
+        if contract:
+            self.send(chat_id, "Kontrakt asosida:\n" + contract)
+        self.send(chat_id, getSolid(result))
+        self.menu(person, labels)
+        self.sessions.pop(chat_id, None)
 
 
-def get_results(update: Update, context: CallbackContext) -> int:
-    global random_num, query, sResult, user_answers, counter
-    user = update.message.from_user
-    logger.info("state: CONFIRM, chat_id: %d, %s: %s ", update.message.chat_id, user.first_name, update.message.text)
-    person = BotUsers.objects.get(chat_id=query.message.chat.id)
-    if update.message.text == string[person.lang]['yes']:
-        pass
-    elif update.message.text == string[person.lang]['no']:
-        user_answers = ""
-        update.message.reply_text(string[person.lang]['reenter']+"\n"+string[person.lang]['enter_first'])
-        return WAITING_FOR_ANSWERS
-    else:
-        echo(update, context)
-        return ConversationHandler.END
-
-    print(str(query.data) + " " + str(random_num))
-    fEarnedPoint, user_result = getPoint(person.lang, query.data, random_num, user_answers)
-    user_answers = ''
-    user_result = getSolid(user_result)
-    grant_result, contr_result = getResult(fEarnedPoint, person.lang, 'kunduzgi', query.data)
-    if len(grant_result.splitlines()) != 0:
-        if len(contr_result.splitlines()) != 0:
-            update.message.reply_text(string[person.lang]['pass'].format(fEarnedPoint, len(grant_result.splitlines())+len(contr_result)))
-            update.message.reply_text("Grant asosida:\n" + grant_result)
-            update.message.reply_text("Kontrakt asosida:\n" + contr_result)
-            update.message.reply_text(user_result)
-        else:
-            update.message.reply_text(string[person.lang]['pass'].format(fEarnedPoint, len(grant_result.splitlines())))
-            update.message.reply_text("Grant asosida:\n" + grant_result)
-            update.message.reply_text(user_result)
-    elif len(contr_result.splitlines()) != 0:
-            update.message.reply_text(string[person.lang]['pass'].format(fEarnedPoint, len(contr_result.splitlines())))
-            update.message.reply_text("Kontrakt asosida:\n" + contr_result)
-            update.message.reply_text(user_result)
-    else:
-        update.message.reply_text(string[person.lang]['fail'].format(fEarnedPoint))
-        update.message.reply_text(user_result)
-    main_menu_keyboard = keyboard_generator(person)
-    reply_kb_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True, one_time_keyboard=True)
-    update.message.reply_text(
-        string[person.lang]['backto'],
-        reply_markup=reply_kb_markup,
-    )
-    return ConversationHandler.END
-
-
-def precheckout_callback(update: Update, _: CallbackContext) -> None:
-    print("CHECKOUT")
-    query = update.pre_checkout_query
-    if query.invoice_payload != 'Test-Payload':
-        query.answer(ok=False, error_message="Xatolik yuz berdi.")
-    else:
-        query.answer(ok=True)
-
-
-def answer_precheckout_callback(update: Update, _: CallbackContext) -> None:
-    query = update.answer_pre_checkout_query
-    query.answer(ok=True)
-
-
-def successful_payment_callback(update: Update, _: CallbackContext) -> None:
-    global sResult, user_answers, random_num, query
-    person = BotUsers.objects.get(chat_id=query.message.chat.id)
-    update.message.reply_text("To'lov amalga oshirildi.")
-    
-    fEarnedPoint, user_result = getPoint(person.lang, query.data, random_num, user_answers)
-    user_answers = ''
-    user_result = getSolid(user_result)
-    grant_result, contr_result = getResult(fEarnedPoint, person.lang, 'kunduzgi', query.data)
-    if len(grant_result.splitlines()) != 0:
-        if len(contr_result.splitlines()) != 0:
-            update.message.reply_text(string[person.lang]['pass'].format(fEarnedPoint, len(grant_result.splitlines())+len(contr_result)))
-            update.message.reply_text("Grant asosida:\n" + grant_result)
-            update.message.reply_text("Kontrakt asosida:\n" + contr_result)
-            update.message.reply_text(user_result)
-        else:
-            update.message.reply_text(string[person.lang]['pass'].format(fEarnedPoint, len(grant_result.splitlines())))
-            update.message.reply_text("Grant asosida:\n" + grant_result)
-            update.message.reply_text(user_result)
-    elif len(contr_result.splitlines()) != 0:
-            update.message.reply_text(string[person.lang]['pass'].format(fEarnedPoint, len(contr_result.splitlines())))
-            update.message.reply_text("Kontrakt asosida:\n" + contr_result)
-            update.message.reply_text(user_result)
-    else:
-        update.message.reply_text(string[person.lang]['fail'].format(fEarnedPoint))
-        update.message.reply_text(user_result)
+class PollingErrors:
+    def handle(self, exception):
+        logger.warning("Telegram polling or update handling failed.")
+        return True
 
 
 class Command(BaseCommand):
-    help = 'tg bot'
+    help = "Run the Telegram exam bot."
 
     def handle(self, *args, **options):
-        updater = Updater(BOT_TOKEN)
-        dispatcher = updater.dispatcher
-        user_register_conv_handler = ConversationHandler(
-            entry_points=[CommandHandler('start', start)],
-            states={
-                NAME: [MessageHandler(Filters.text & ~Filters.command, name)],
-                PHONE: [MessageHandler(Filters.text | Filters.contact & ~Filters.command, phone)],
-            },
-            fallbacks=[CommandHandler('stop', stop)],
-        )
-
-        user_info_conv_hendler = ConversationHandler(
-            entry_points=[MessageHandler(Filters.regex(
-                '^({}|{})$'.format(string['uz']['personal_information'], string['ru']['personal_information'])),
-                                        person_info_start)],
-            states={
-                PERSON_INFO: [MessageHandler(Filters.text & ~Filters.command, person_info)],
-                CHANGE_NAME: [MessageHandler(Filters.text & ~Filters.command, change_name)],
-                CHANGE_PHONE: [MessageHandler(Filters.text | Filters.contact & ~Filters.command, change_phone)],
-
-            },
-            fallbacks=[CommandHandler('stop', stop)],
-        )
-
-        change_language_conv_hendler = ConversationHandler(
-            entry_points=[MessageHandler(
-                Filters.regex('^({}|{})$'.format(string['uz']['change_language'], string['ru']['change_language'])),
-                change_language_start)],
-            states={
-                CHANGE_LANGUAGE: [MessageHandler(Filters.text & ~Filters.command, change_language)],
-            },
-            fallbacks=[CommandHandler('stop', stop)],
-        )
-        test_start_conv_handler = ConversationHandler(
-            entry_points=[
-                MessageHandler(Filters.regex('^({}|{})$'.format(string['uz']['start_test'], string['ru']['start_test'])),
-                            test_start)],
-            states={
-                SELECT_SUBJECT: [CallbackQueryHandler(select_subject)],
-                WAITING_FOR_ANSWERS: [MessageHandler(Filters.text & ~Filters.command, waiting_for_answers)],
-                WAITING_FOR_ANSWERS2: [MessageHandler(Filters.text & ~Filters.command, waiting_for_answers2)],
-                GET_RESULTS: [MessageHandler(Filters.text & ~Filters.command, get_results)],
-
-            },
-            fallbacks=[MessageHandler(Filters.regex('^({}|{})$'.format(string['uz']['back'], string['ru']['back'])), echo)],
-        )
-        dispatcher.add_handler(test_start_conv_handler)
-
-        dispatcher.add_handler(change_language_conv_hendler)
-        dispatcher.add_handler(user_register_conv_handler)
-        dispatcher.add_handler(user_info_conv_hendler)
-        dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
-
-        updater.start_polling()
-        updater.idle()
+        if not settings.BOT_TOKEN:
+            raise CommandError("Set bot_token before starting polling.")
+        # Library error messages can contain request URLs and Telegram payloads.
+        logging.getLogger("TeleBot").disabled = True
+        try:
+            client = TeleBot(settings.BOT_TOKEN, threaded=False, exception_handler=PollingErrors())
+        except ValueError:
+            raise CommandError("bot_token has an invalid format.") from None
+        ExamBot(client)
+        client.infinity_polling(allowed_updates=["message", "callback_query"])
